@@ -9,7 +9,6 @@
 
 #### 下载[releases](https://github.com/XuanRikka/BiliBiliBlacklistManager/releases)中打包好的exe
 
-建议使用nuitka打包的版本
 ```bash
 ./main.exe
 ```
