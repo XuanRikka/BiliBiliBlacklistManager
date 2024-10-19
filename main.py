@@ -1,8 +1,10 @@
 from os.path import exists, isfile
 from json import loads, dumps
 from httpx import get, post
+from time import sleep
 from sys import exit
 import qrcode
+
 
 def load_cookie() -> str:
     if exists("cookie.txt") and isfile("cookie.txt"):
@@ -53,14 +55,21 @@ def get_input(prompt: str, allowed_chars: list[str]) -> str:
 
 
 def get_blacklist() -> list:
-    data = loads(
-        get("https://api.bilibili.com/x/relation/blacks?ps=1145141919810", headers=headers).text)
+    blacklist_ = []
+    data = loads(get("https://api.bilibili.com/x/relation/blacks", headers=headers).text)
+    print("请求页数：", 1)
     data = data["data"]
-    blacklist_ = data["list"]
-    _blacklist = []
-    for i in blacklist_:
-        _blacklist.append(str(i["mid"]))
-    return _blacklist
+    blacklist_ += [str(i["mid"]) for i in data['list']]
+    t = data["total"]
+    if len(data["list"]) < 50:
+        return blacklist_
+    num = (t - len(data["list"])) // 50
+    for i in range(2, num + 3):
+        a = loads(get(f"https://api.bilibili.com/x/relation/blacks?pn={i}", headers=headers).text)["data"]["list"]
+        blacklist_ += [str(i["mid"]) for i in a]
+        print("请求页数：", i)
+        sleep(2)
+    return blacklist_
 
 
 def get_bili_jct():
@@ -72,6 +81,7 @@ def get_bili_jct():
             continue
         cookie_data[t[0]] = t[1]
     return cookie_data["bili_jct"]
+
 
 def add_blacklist(_blacklist: list[str]):
     bili_jct = get_bili_jct()
@@ -100,8 +110,8 @@ if __name__ == "__main__":
         login()
     else:
         print("从本地读取cookie成功")
-    # login_info = get_login_info()
-    # print(f"登录成功：昵称：{login_info['data']['uname']}， UID：{login_info['data']['mid']}")
+    login_info = get_login_info()
+    print(f"登录成功：昵称：{login_info['data']['uname']}， UID：{login_info['data']['mid']}")
 
     choice = get_input("请输入对黑名单操作(1:导入,2:导出)：", ["1", "2", "导入", "导出"])
     if choice == "2":
