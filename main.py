@@ -113,16 +113,45 @@ if __name__ == "__main__":
     login_info = get_login_info()
     print(f"登录成功：昵称：{login_info['data']['uname']}， UID：{login_info['data']['mid']}")
 
-    choice = get_input("请输入对黑名单操作(1:导入,2:导出)：", ["1", "2", "导入", "导出"])
-    if choice == "2":
-        blacklist = get_blacklist()
-        open("blacklist.json", "w").write(dumps(blacklist))
-        print("已经导出到当前目录下的blacklist.json")
-        print("内容为一个包含UID的列表")
-        exit()
-    path = input("请输入要导入的黑名单文件的文件路径")
-    blacklist = load_blacklist(path)
-    re_data = add_blacklist(blacklist)
-    print("添加完成，操作失败列表：")
-    print("\n".join(re_data["data"]["failed_fids"]))
+    while True:
+        choice = get_input("\n请输入对黑名单操作(1:导入,2:导出)：", ["1", "2", "导入", "导出"])
+        
+        if choice in ["2", "导出"]:
+            blacklist = get_blacklist()
+            open("blacklist.json", "w").write(dumps(blacklist))
+            print("已经导出到当前目录下的blacklist.json")
+            print("内容为一个包含UID的列表")
+            
+        else:
+            path = input("请输入要导入的黑名单文件的文件路径(直接回车默认读取当前目录下的blacklist.json)：")
+            if not path.strip():
+                path = "blacklist.json"
+            blacklist = load_blacklist(path)
+            print(f"共读取到 {len(blacklist)} 个黑名单用户，开始分批导入（每批20个）...")
+            failed_total = []
 
+            for i in range(0, len(blacklist), 20):
+                batch = blacklist[i:i+20]
+                re_data = add_blacklist(batch)
+                
+                if re_data.get("code") == 0 and re_data.get("data") is not None:
+                    batch_failed = re_data["data"].get("failed_fids", [])
+                    if isinstance(batch_failed, list):
+                        failed_total.extend(batch_failed)
+                    print(f"进度：{min(i+20, len(blacklist))}/{len(blacklist)} 处理完毕...")
+                else:
+                    print(f"进度：{min(i+20, len(blacklist))}/{len(blacklist)} 遇到异常：{re_data}")
+                    
+                sleep(1.5)  # 加一点延时，防止请求太快被B站拦截
+
+            print("--- 导入任务结束 ---")
+            if failed_total:
+                print("以下 UID 导入失败（可能账号已注销或已在黑名单中）：")
+                print("\n".join([str(uid) for uid in failed_total]))
+            else:
+                print("全部导入成功，无失败记录！")
+
+        # 每轮跑完后询问是否继续
+        cont = input("\n操作已完成。输入 k 继续执行其他操作，按回车或其他键退出：")
+        if cont.strip().lower() != 'k':
+            break
